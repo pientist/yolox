@@ -23,20 +23,20 @@ def make_parser():
 
     # distributed
     parser.add_argument(
-        "--dist-backend",
+        "--dist_backend",
         default="nccl",
         type=str,
         help="distributed backend",
     )
     parser.add_argument(
-        "--dist-url",
+        "--dist_url",
         default=None,
         type=str,
         help="url used to set up distributed training",
     )
     parser.add_argument(
         "-b",
-        "--batch-size",
+        "--batch_size",
         type=int,
         default=64,
         help="batch size",
