@@ -1,10 +1,14 @@
+import json
+import os
+import sys
+
+if not os.getcwd() in sys.path:
+    sys.path.append(os.getcwd())
+
 from tqdm import tqdm
 
 import cv2
 import numpy as np
-
-import json
-import os
 
 
 class COCOFormatter:
@@ -73,6 +77,14 @@ class COCOFormatter:
 
             if not skip_image:
                 self.image_list.append(image_txt)
+
+    def translate_bbox_labels(self, x=0, y=0):
+        new_label_list = []
+        for label in self.label_list:
+            label["bbox"][0] += x
+            label["bbox"][1] += y
+            new_label_list.append(label)
+        self.label_list = new_label_list
 
     def save_txt(self, save_path="datasets/soccer/annotations/instances_train2017.json"):
         coco_txt = {"images": self.image_list, "annotations": self.label_list, "categories": self.category_list}
