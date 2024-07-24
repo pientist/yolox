@@ -180,8 +180,9 @@ class Predictor(object):
         img, _ = self.preproc(img, None, self.test_size)
         img = torch.from_numpy(img).unsqueeze(0)
         img = img.float()
-        if self.device == "gpu":
-            img = img.cuda()
+        if self.device == "gpu" or self.device.startswith("cuda"):
+            # img = img.cuda()
+            img = img.to(self.device)
             if self.fp16:
                 img = img.half()  # to FP16
 
