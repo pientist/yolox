@@ -161,7 +161,7 @@ class Predictor(object):
             self.model(x)
             self.model = model_trt
 
-    def inference(self, img):
+    def inference(self, img, verbose=True):
         img_info = {"id": 0}
         if isinstance(img, str):
             img_info["file_name"] = os.path.basename(img)
@@ -198,7 +198,8 @@ class Predictor(object):
                 self.nmsthre,
                 class_agnostic=True,
             )
-            logger.info("Infer time: {:.4f}s".format(time.time() - t0))
+            if verbose:
+                logger.info("Infer time: {:.4f}s".format(time.time() - t0))
         return outputs, img_info
 
     def visual(self, output, img_info, cls_conf=0.35):
