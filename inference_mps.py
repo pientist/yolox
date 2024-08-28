@@ -26,15 +26,16 @@ if __name__ == "__main__":
     model_name = "yolox_s"
     exp_path = "exps/example/custom/yolox_s.py"
     ckpt_path = "YOLOX_outputs/yolox_s/best_ckpt.pth"
-    video_path = "datasets/soccer/sample_match.mp4"
-    device = "cpu"
+    video_path = "datasets/sample_match.mp4"
+    device = torch.device("mps") if torch.backends.mps.is_available() else "cpu"
     bbox_cols = ["x1", "y1", "x2", "y2", "conf1", "conf2", "class"]
 
     exp = get_exp(exp_path, model_name)
-    ckpt = torch.load(ckpt_path, map_location="cpu")
+    ckpt = torch.load(ckpt_path, weights_only=False, map_location="cpu")
 
     model = exp.get_model()
     model.to(device)
+    model.half()
     model.eval()
     model.load_state_dict(ckpt["model"])
 
@@ -56,8 +57,14 @@ if __name__ == "__main__":
 
         padded_image = np.pad(image, ((0, 1000), (0, 1920), (0, 0))).transpose(2, 0, 1)
         with torch.no_grad():
-            outputs = model(torch.FloatTensor(padded_image).unsqueeze(0).to(device))
-            outputs = postprocess(outputs, exp.num_classes, exp.test_conf, exp.nmsthre, class_agnostic=True)
+            outputs = model(torch.HalfTensor(padded_image).unsqueeze(0).to(device))
+            outputs = postprocess(
+                outputs,
+                exp.num_classes,
+                exp.test_conf,
+                exp.nmsthre,
+                class_agnostic=True,
+            )
 
         image_bboxes = pd.DataFrame(outputs[0].cpu().numpy(), columns=bbox_cols)
         image_bboxes["frame"] = i
@@ -68,6 +75,7 @@ if __name__ == "__main__":
     bboxes["conf"] = bboxes["conf1"] * bboxes["conf2"]
     bboxes["class"] = bboxes["class"].map({0: "player", 32: "ball"})
     bboxes = bboxes[["frame"] + bbox_cols[:4] + ["conf", "class"]]
+    print(bboxes)
 
     os.makedirs("YOLOX_outputs/yolox_s/bboxes", exist_ok=True)
-    bboxes.to_csv("YOLOX_outputs/yolox_s/bboxes/sample_video_cpu.csv")
+    bboxes.to_csv("YOLOX_outputs/yolox_s/bboxes/sample_video_mps.csv")
