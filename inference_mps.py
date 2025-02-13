@@ -28,8 +28,8 @@ if __name__ == "__main__":
     ckpt_path = f"YOLOX_outputs/{model_name}/best_ckpt.pth"
 
     video_name = "GX010224_Trim_18.07"
-    video_path = f"datasets/soccer/videos/{video_name}.mp4"
-    bbox_path = f"YOLOX_outputs/{model_name}/bboxes/{video_name}.csv"
+    video_path = f"datasets/video/{video_name}.mp4"
+    bbox_path = f"YOLOX_outputs/{model_name}/bbox/{video_name}.csv"
 
     max_frame = 3000
     step_size = 30
@@ -90,5 +90,5 @@ if __name__ == "__main__":
     bboxes = bboxes.loc[bboxes["confidence"] > min_conf, ["frame"] + bbox_cols[:4] + ["confidence", "class"]]
     print(bboxes)
 
-    os.makedirs("YOLOX_outputs/yolox_s/bboxes", exist_ok=True)
+    os.makedirs("YOLOX_outputs/yolox_s/bbox", exist_ok=True)
     bboxes.to_csv(bbox_path, index=False)
