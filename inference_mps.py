@@ -27,13 +27,15 @@ if __name__ == "__main__":
     exp_path = "exps/example/custom/yolox_s.py"
     ckpt_path = f"YOLOX_outputs/{model_name}/best_ckpt.pth"
 
-    video_name = "GX010224_Trim_18.07"
+    # video_name = "GX010224_Trim_18.07"
+    video_name = "GX010227"
     video_path = f"datasets/video/{video_name}.mp4"
     bbox_path = f"YOLOX_outputs/{model_name}/bbox/{video_name}.csv"
 
-    max_frame = 3000
-    step_size = 30
-    min_conf = 0.1
+    # max_frame = 3000
+    offset = 450
+    step_size = 900
+    min_conf = 0.5
 
     if torch.cuda.is_available():
         device = torch.device("cuda")
@@ -52,19 +54,23 @@ if __name__ == "__main__":
     model.eval()
     model.load_state_dict(ckpt["model"])
 
-    video = cv2.VideoCapture(video_path)
-    n_frames = int(video.get(cv2.CAP_PROP_FRAME_COUNT))
+    cap = cv2.VideoCapture(video_path)
+    n_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
     n_frames, drop_frames = get_drop_frames(n_frames)
 
     bbox_cols = ["x1", "y1", "x2", "y2", "conf1", "conf2", "class"]
     bbox_list = []
 
-    for i in tqdm(np.setdiff1d(np.arange(1, n_frames), drop_frames)[:max_frame]):
-        video.grab()
-        if i % step_size != 0:
-            continue
+    # for i in tqdm(np.setdiff1d(np.arange(1, n_frames), drop_frames)):  # [:max_frame]
+    #     video.grab()
+    #     if i % step_size != 0:
+    #         continue
+    #     ret, image = video.retrieve()
 
-        ret, image = video.retrieve()
+    for i in tqdm(np.setdiff1d(np.arange(offset, n_frames, step_size), drop_frames)):
+        cap.set(cv2.CAP_PROP_POS_FRAMES, i)
+
+        ret, image = cap.read()
         if image is None:
             break
 
