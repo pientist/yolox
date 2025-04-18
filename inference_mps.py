@@ -58,13 +58,14 @@ if __name__ == "__main__":
     model.load_state_dict(ckpt["model"])
 
     cap = cv2.VideoCapture(video_path)
-    n_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
-    n_frames, drop_frames = get_drop_frames(n_frames)
+    fps = round(cap.get(cv2.CAP_PROP_FPS), 2)
+    frame_count = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+    frame_count, drop_frames = get_drop_frames(frame_count)
 
-    bbox_cols = ["x1", "y1", "x2", "y2", "conf1", "conf2", "class"]
+    output_cols = ["x1", "y1", "x2", "y2", "conf1", "conf2", "class"]
     bbox_list = []
 
-    for frame in tqdm(np.setdiff1d(np.arange(offset, n_frames, step_size), drop_frames)):
+    for frame in tqdm(np.setdiff1d(np.arange(offset, frame_count, step_size), drop_frames)):
         image_idx = calculate_image_idx(frame, drop_frames)
         cap.set(cv2.CAP_PROP_POS_FRAMES, image_idx)
 
@@ -83,15 +84,18 @@ if __name__ == "__main__":
                 class_agnostic=True,
             )
 
-        image_bboxes = pd.DataFrame(outputs[0].cpu().numpy(), columns=bbox_cols)
-        image_bboxes["frame"] = frame
+        image_bboxes = pd.DataFrame(outputs[0].cpu().numpy(), columns=output_cols)
+        image_bboxes["frame_60hz"] = frame * 2
+        image_bboxes["image_idx"] = image_idx
         bbox_list.append(image_bboxes)
 
     bboxes = pd.concat(bbox_list, ignore_index=True)
-    bboxes[bbox_cols[:4]] = bboxes[bbox_cols[:4]].round(2)
+    bboxes[output_cols[:4]] = bboxes[output_cols[:4]].round(2)
     bboxes["confidence"] = bboxes["conf1"] * bboxes["conf2"]
     bboxes["class"] = bboxes["class"].map({0: "player", 32: "ball"})
-    bboxes = bboxes.loc[bboxes["confidence"] > min_conf, ["frame"] + bbox_cols[:4] + ["confidence", "class"]]
+
+    save_cols = ["frame_60hz", "image_idx"] + output_cols[:4] + ["confidence", "class"]
+    bboxes = bboxes.loc[bboxes["confidence"] > min_conf, save_cols]
     print(bboxes)
 
     os.makedirs("YOLOX_outputs/yolox_s/bbox", exist_ok=True)
