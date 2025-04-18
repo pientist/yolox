@@ -22,13 +22,16 @@ def get_drop_frames(n_frames: int) -> Tuple[int, np.ndarray]:
     return n_frames + len(drop_frames), drop_frames
 
 
+def calculate_image_idx(frame: int, drop_frames: np.ndarray) -> int:
+    return frame - np.searchsorted(drop_frames, frame) if frame > 0 else frame
+
+
 if __name__ == "__main__":
     model_name = "yolox_s"
     exp_path = "exps/example/custom/yolox_s.py"
     ckpt_path = f"YOLOX_outputs/{model_name}/best_ckpt.pth"
 
-    # video_name = "GX010224_Trim_18.07"
-    video_name = "GX010227"
+    video_name = "20240604-riverplate-2"
     video_path = f"datasets/video/{video_name}.mp4"
     bbox_path = f"YOLOX_outputs/{model_name}/bbox/{video_name}.csv"
 
@@ -61,14 +64,9 @@ if __name__ == "__main__":
     bbox_cols = ["x1", "y1", "x2", "y2", "conf1", "conf2", "class"]
     bbox_list = []
 
-    # for i in tqdm(np.setdiff1d(np.arange(1, n_frames), drop_frames)):  # [:max_frame]
-    #     video.grab()
-    #     if i % step_size != 0:
-    #         continue
-    #     ret, image = video.retrieve()
-
-    for i in tqdm(np.setdiff1d(np.arange(offset, n_frames, step_size), drop_frames)):
-        cap.set(cv2.CAP_PROP_POS_FRAMES, i)
+    for frame in tqdm(np.setdiff1d(np.arange(offset, n_frames, step_size), drop_frames)):
+        image_idx = calculate_image_idx(frame, drop_frames)
+        cap.set(cv2.CAP_PROP_POS_FRAMES, image_idx)
 
         ret, image = cap.read()
         if image is None:
@@ -86,7 +84,7 @@ if __name__ == "__main__":
             )
 
         image_bboxes = pd.DataFrame(outputs[0].cpu().numpy(), columns=bbox_cols)
-        image_bboxes["frame"] = i
+        image_bboxes["frame"] = frame
         bbox_list.append(image_bboxes)
 
     bboxes = pd.concat(bbox_list, ignore_index=True)
