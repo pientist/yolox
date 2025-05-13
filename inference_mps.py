@@ -7,19 +7,20 @@ import torch
 
 from yolox.exp import get_exp
 from yolox.utils import postprocess
+from yolox.data.data_augment import preproc
 
 import os
 import pandas as pd
 from typing import Tuple
 
 
-def get_drop_frames(n_frames: int) -> Tuple[int, np.ndarray]:
-    n_frames_total = (int(n_frames / 29.97) + 1) * 30
-    minute_frames = np.arange(0, n_frames_total + 1, 1800)
-    ten_minute_frames = np.arange(0, n_frames_total + 1, 18000)
-    drop_frames = np.setdiff1d(minute_frames, ten_minute_frames)
-    drop_frames = np.union1d(drop_frames, drop_frames + 1)
-    return n_frames + len(drop_frames), drop_frames
+def get_drop_frames(n_frames: int, fps: float = 29.97) -> Tuple[int, np.ndarray]:
+    if fps == 29.97 or fps == 30:
+        n_frames_total = (int(n_frames / 29.97) + 1) * 30
+        drop_frames = np.arange(999, n_frames_total, 1000)
+        return n_frames + len(drop_frames), drop_frames
+    else:
+        return n_frames, np.array([])
 
 
 def calculate_image_idx(frame: int, drop_frames: np.ndarray) -> int:
@@ -31,13 +32,13 @@ if __name__ == "__main__":
     exp_path = "exps/example/custom/yolox_s.py"
     ckpt_path = f"YOLOX_outputs/{model_name}/best_ckpt.pth"
 
-    video_name = "20240604-riverplate-2"
-    video_path = f"datasets/video/{video_name}.mp4"
+    video_name = "20250415-padel"
+    # video_name = "GX010227"
+    video_path = f"datasets/video/{video_name}.mov"
     bbox_path = f"YOLOX_outputs/{model_name}/bbox/{video_name}.csv"
 
-    # max_frame = 3000
-    offset = 450
-    step_size = 900
+    offset = 5000
+    step_size = 10000
     min_conf = 0.5
 
     if torch.cuda.is_available():
@@ -73,9 +74,13 @@ if __name__ == "__main__":
         if image is None:
             break
 
-        padded_image = np.pad(image, ((0, 1000), (0, 1920), (0, 0))).transpose(2, 0, 1)
+        image_resized, ratio = preproc(image, exp.test_size)
+        image_tensor = torch.from_numpy(image_resized).unsqueeze(0).half().to(device)
+        # image_padded = np.pad(image, ((0, 1000), (0, 1920), (0, 0))).transpose(2, 0, 1)
+
         with torch.no_grad():
-            outputs = model(torch.HalfTensor(padded_image).unsqueeze(0).to(device))
+            # outputs = model(torch.HalfTensor(image_padded).unsqueeze(0).to(device))
+            outputs = model(image_tensor)
             outputs = postprocess(
                 outputs,
                 exp.num_classes,
@@ -84,17 +89,18 @@ if __name__ == "__main__":
                 class_agnostic=True,
             )
 
-        image_bboxes = pd.DataFrame(outputs[0].cpu().numpy(), columns=output_cols)
-        image_bboxes["frame_60hz"] = frame * 2
-        image_bboxes["image_idx"] = image_idx
-        bbox_list.append(image_bboxes)
+        if isinstance(outputs[0], torch.Tensor):
+            image_bboxes = pd.DataFrame(outputs[0].cpu().numpy(), columns=output_cols)
+            image_bboxes["frame"] = frame
+            image_bboxes["image_idx"] = image_idx
+            bbox_list.append(image_bboxes)
 
     bboxes = pd.concat(bbox_list, ignore_index=True)
     bboxes[output_cols[:4]] = bboxes[output_cols[:4]].round(2)
     bboxes["confidence"] = bboxes["conf1"] * bboxes["conf2"]
     bboxes["class"] = bboxes["class"].map({0: "player", 32: "ball"})
 
-    save_cols = ["frame_60hz", "image_idx"] + output_cols[:4] + ["confidence", "class"]
+    save_cols = ["frame", "image_idx"] + output_cols[:4] + ["confidence", "class"]
     bboxes = bboxes.loc[bboxes["confidence"] > min_conf, save_cols]
     print(bboxes)
 
